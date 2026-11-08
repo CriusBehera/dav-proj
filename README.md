@@ -3,7 +3,7 @@
 A ready-to-edit starter: **Streamlit + MySQL** with sign-in, an AI chatbot and one example app.
 Copy it, rename things, and build your own pages on top.
 
-Made by **Crius Behera** · Sponsored by **Nuera Core AI**, **Crius Software Solutions**
+By **Crius Behera**, **Reyansh Patel** · Delhi Public School Kalinga
 
 ## What is already working
 - **Sign-in** by username, email or **Google** (Firebase), all in one `users` table.

@@ -10,7 +10,7 @@ import streamlit as st
 
 import db
 
-CREDITS = "Made by <b>Crius Behera</b> · Sponsored by <b>Nuera Core AI</b>, <b>Crius Software Solutions</b>"
+CREDITS = "By <b>Crius Behera</b>, <b>Reyansh Patel</b> · Delhi Public School Kalinga"
 
 # Gradient for each app's banner and icon chips
 GRADIENTS = {

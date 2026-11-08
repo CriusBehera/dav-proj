@@ -30,7 +30,7 @@ users(id, username, provider, created_at)  -- never select password_hash, login_
 -- Add your own tables here (this text is how the AI learns your database).""".strip()
 
 PLAN_PROMPT = """You are Nuera Core AI, the assistant inside "DAV Project" (a starter project by
-Crius Behera). You answer questions about a MySQL 8 database by writing SQL.
+Crius Behera and Reyansh Patel). You answer questions about a MySQL 8 database by writing SQL.
 
 Tables:
 {schema}
