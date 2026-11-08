@@ -1,0 +1,31 @@
+# Look and feel: soft grey canvas, white cards (see ui.py) and a dark sidebar.
+[theme]
+base = "light"
+primaryColor = "#4F46E5"
+backgroundColor = "#F4F6FB"
+secondaryBackgroundColor = "#FFFFFF"
+textColor = "#0F172A"
+borderColor = "#E3E7EF"
+dataframeBorderColor = "#EEF1F6"
+dataframeHeaderBackgroundColor = "#F8FAFC"
+font = "Inter:https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+headingFont = "Inter"
+headingFontWeights = [800, 700, 650]
+headingFontSizes = ["2rem", "1.45rem", "1.05rem"]
+codeFont = "JetBrains Mono:https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap"
+codeBackgroundColor = "#F1F5F9"
+baseRadius = "10px"
+buttonRadius = "10px"
+showWidgetBorder = true
+chartCategoricalColors = ["#4F46E5", "#EC4899", "#14B8A6", "#F59E0B", "#3B82F6", "#8B5CF6", "#EF4444"]
+
+[theme.sidebar]
+backgroundColor = "#0B1020"
+secondaryBackgroundColor = "#141B2D"
+textColor = "#C7CEDB"
+borderColor = "#1E2638"
+primaryColor = "#818CF8"
+linkColor = "#C7CEDB"
+
+[client]
+toolbarMode = "minimal"
