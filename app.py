@@ -99,7 +99,8 @@ def sidebar(current_path):
                     "<div><b>DAV Project</b><small>Starter project</small></div></div>",
                     unsafe_allow_html=True)
         nav_link("", current_path, "Home")
-        nav_link("notes", current_path, "Notes")
+        if not app:  # inside Notes its own section already lists the page
+            nav_link("notes", current_path, "Notes")
         nav_link("ai", current_path, "Nuera AI")
         if app:
             name, paths = APPS[app]
