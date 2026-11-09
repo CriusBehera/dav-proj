@@ -215,6 +215,7 @@ def login_body():
         if not user["has_totp"]:
             st.warning("Two-step sign-in is required. Set up your authenticator app to continue.")
             if totp_setup(user):
+                db.clear_attempts(user["id"])
                 done()
         else:
             st.info("🔐 Open your authenticator app and enter the 6-digit code for DAV Project.")
@@ -224,14 +225,19 @@ def login_body():
                 if st.form_submit_button("Verify", type="primary", width="stretch"):
                     code = code.strip()
                     secret = db.get_totp_secret(user["id"])
-                    if pyotp.TOTP(secret).verify(code, valid_window=1) or db.use_backup_code(user["id"], code):
-                        done()
-                    pending["tries"] = pending.get("tries", 0) + 1
-                    if pending["tries"] >= db.MAX_ATTEMPTS:
+                    wait = db.locked_minutes(user["id"])
+                    if wait:  # the lock is stored in the database, so new tabs can't dodge it
                         state.pop("pending", None)
-                        ui.flash("Too many wrong codes. Sign in again.", "🔒")
+                        ui.flash(f"Too many wrong codes. Locked for {wait} min.", "🔒")
                         st.rerun()
-                    st.error(f"Wrong code. {db.MAX_ATTEMPTS - pending['tries']} attempt(s) left.")
+                    if pyotp.TOTP(secret).verify(code, valid_window=1) or db.use_backup_code(user["id"], code):
+                        db.clear_attempts(user["id"])
+                        done()
+                    if db.register_failure(user["id"]):
+                        state.pop("pending", None)
+                        ui.flash(f"Too many wrong codes. Locked for {db.LOCK_MINUTES} min.", "🔒")
+                        st.rerun()
+                    st.error("Wrong code. Try again.")
     elif not user["login_email"]:
         st.warning("Your account needs a verified email. Add yours and we'll send a link.")
         email = st.text_input("Email", key="pending_email", placeholder="you@example.com").strip()

@@ -342,7 +342,8 @@ def sql_playground(examples, tables_help):
         columns, rows = db.run_select(sql)
         with card():
             st.caption(f"✅ {len(rows)} row(s)")
-            st.dataframe(to_df(rows, columns), width="stretch", hide_index=True)
+            st.dataframe(to_df(rows, columns), width="stretch", hide_index=True,
+                         alt="Query result table")
     except ValueError as e:
         st.warning(str(e))
     except mysql.connector.Error as e:

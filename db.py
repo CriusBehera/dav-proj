@@ -125,9 +125,36 @@ def authenticate(identifier, password):
         left = MAX_ATTEMPTS - attempts
         return None, f"Wrong username, email or password. {left} attempt(s) left before lock."
 
-    run_query("UPDATE users SET failed_attempts = 0, locked_until = NULL WHERE id = %s",
-              (row["id"],))
+    # Counters are cleared only after the whole sign-in (including the authenticator code)
+    # succeeds, so wrong codes can't be reset by re-entering the password.
     return get_user("id", row["id"]), None
+
+
+def locked_minutes(user_id):
+    """Minutes left on a lock (0 when the account is not locked)."""
+    rows = run_query("SELECT TIMESTAMPDIFF(SECOND, NOW(), locked_until) AS s FROM users WHERE id = %s",
+                     (user_id,), fetch=True)
+    seconds = (rows[0]["s"] or 0) if rows else 0
+    return -(-seconds // 60) if seconds > 0 else 0
+
+
+def register_failure(user_id):
+    """Count one wrong authenticator code; locks the account like wrong passwords do.
+
+    Returns True when this failure locked the account.
+    """
+    rows = run_query("SELECT failed_attempts FROM users WHERE id = %s", (user_id,), fetch=True)
+    attempts = (rows[0]["failed_attempts"] if rows else 0) + 1
+    if attempts >= MAX_ATTEMPTS:
+        run_query("UPDATE users SET failed_attempts = 0, locked_until = NOW() + INTERVAL %s MINUTE "
+                  "WHERE id = %s", (LOCK_MINUTES, user_id))
+        return True
+    run_query("UPDATE users SET failed_attempts = %s WHERE id = %s", (attempts, user_id))
+    return False
+
+
+def clear_attempts(user_id):
+    run_query("UPDATE users SET failed_attempts = 0, locked_until = NULL WHERE id = %s", (user_id,))
 
 
 def google_user(email, name=""):

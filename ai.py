@@ -213,10 +213,11 @@ def show_results(results):
                 st.error(r["error"])
                 continue
             df = r["df"]
-            st.dataframe(df, hide_index=True, width="stretch")
+            st.dataframe(df, hide_index=True, width="stretch", alt=f"Result table for query {n}")
             numeric = df.select_dtypes("number").columns
             if len(df.columns) == 2 and len(numeric) == 1 and 1 < len(df) <= 30:
-                st.bar_chart(df, x=df.columns[0], y=numeric[0], height=240)
+                st.bar_chart(df, x=df.columns[0], y=numeric[0], height=240,
+                         alt=f"Bar chart of {numeric[0]} by {df.columns[0]}")
 
 
 def show_debug(trace):
