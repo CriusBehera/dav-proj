@@ -1,6 +1,6 @@
 # New-project checklist (do these once, in this order)
 
-1. **GitHub**: GitHub Desktop → File → Add Local Repository → this folder → Publish repository as `dav-proj`.
+1. **GitHub**: GitHub Desktop → File → Add Local Repository → this folder → Publish repository (the repo name on GitHub is `dav-proj`).
 2. **TiDB (online MySQL)**: create a Starter cluster, load tables with `load_db.py` (Step 2 below).
 3. **Firebase**: new project → Authentication → turn on **Email/Password** and **Google** → copy the web config.
 4. **Streamlit Cloud**: create the app from the repo, paste the secrets (`[mysql]`, `[nuera]`, `[firebase]`).
@@ -13,7 +13,7 @@ Google sign-in uses Firebase's pop-up, so no Google Cloud OAuth client is needed
 
 ---
 
-# Putting dav-proj online (Streamlit Community Cloud)
+# Putting Stratex online (Streamlit Community Cloud)
 
 Streamlit Community Cloud runs your app for free at a link like
 `https://your-name-db-os.streamlit.app`. One catch: the MySQL on your Mac is
@@ -50,8 +50,8 @@ In Terminal, from this project folder (put in your host and user):
 python3 load_db.py --host YOUR_HOST --user YOUR_USER
 ```
 
-It asks for the password, loads `schema.sql` and `sample_data.sql`, and prints
-the row counts (a couple of sample notes).
+It asks for the password, loads `schema.sql` (the tables), and prints
+the row counts (the empty tables).
 (Newer Homebrew `mysql` command line tools can't log in to TiDB, which is why
 this uses Python.)
 
@@ -67,7 +67,7 @@ Use GitHub Desktop: **File → Add Local Repository** → this folder →
 
 1. Go to [share.streamlit.io](https://share.streamlit.io) and sign in with GitHub.
 2. **Create app** → **Deploy a public app from GitHub**.
-3. Repository: `YOUR-GITHUB-NAME/dav-proj` · Branch: `main` · Main file: `app.py`.
+3. Repository: `CriusBehera/dav-proj` · Branch: `main` · Main file: `app.py`.
 4. Open **Advanced settings** → **Secrets** and paste (with your TiDB values):
 
    ```toml
@@ -145,9 +145,4 @@ accounts are copied to Firebase automatically the first time they sign in.
 After the password and the verified email, every password sign-in needs a 6-digit code from an
 authenticator app. We recommend **Microsoft Authenticator** (Google Authenticator and Authy work too).
 The first time, a QR code and 8 one-time backup codes are shown and the user must confirm a code
-before getting in. Google sign-ins skip it. Add the columns once:
-
-```bash
-mysql -u root dav_db < migrate_totp.sql                                   # local (already done)
-python3 load_db.py --host YOUR_HOST --user YOUR_USER --file migrate_totp.sql # TiDB (online)
-```
+before getting in. Google sign-ins skip it. The columns it needs (`totp_secret`, `backup_codes`) are already in `schema.sql`.

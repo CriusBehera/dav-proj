@@ -1,4 +1,4 @@
-"""Sign in (username, email or Google), create account, account page, password rules."""
+import io
 import re
 import secrets
 
@@ -10,7 +10,6 @@ import db
 import firebase
 import ui
 
-# Passwords containing any of these are among the first an attacker would try
 COMMON_PARTS = (
     "password", "passw0rd", "qwerty", "123456", "654321", "abcdef", "abc123", "admin",
     "welcome", "letmein", "iloveyou", "football", "monkey", "sunshine", "princess", "dragon",
@@ -20,7 +19,6 @@ EMAIL_RULE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
 def password_checks(password, username=""):
-    """Every rule a password must pass, as (passed, description) pairs."""
     lowered = password.lower()
     return [
         (len(password) >= 8, "At least 8 characters"),
@@ -34,25 +32,16 @@ def password_checks(password, username=""):
     ]
 
 
-def strength(checks):
-    """0–100 score and a label, from how many rules pass."""
-    passed = sum(ok for ok, _ in checks)
-    score = round(100 * passed / len(checks))
-    label = "Weak" if score < 60 else "Okay" if score < 100 else "Strong"
-    return score, label
-
-
 def show_checklist(checks):
-    score, label = strength(checks)
+    score = round(100 * sum(ok for ok, _ in checks) / len(checks))
+    label = "Weak" if score < 60 else "Okay" if score < 100 else "Strong"
     st.progress(score, text=f"Password strength: **{label}**")
     left, right = st.columns(2)
     for n, (ok, text) in enumerate(checks):
-        (left if n % 2 == 0 else right).markdown(
-            f":{'green' if ok else 'gray'}[{'✓' if ok else '○'} {text}]")
+        (left if n % 2 == 0 else right).markdown(f":{'green' if ok else 'gray'}[{'✓' if ok else '○'} {text}]")
 
 
 def new_password_inputs(username, key):
-    """Password + confirm boxes with the live checklist. Returns the password if valid."""
     password = st.text_input("Password", type="password", key=f"{key}_pw",
                              placeholder="Make it strong")
     confirm = st.text_input("Confirm password", type="password", key=f"{key}_confirm")
@@ -61,23 +50,6 @@ def new_password_inputs(username, key):
         checks.append((password == confirm, "Both passwords match"))
         show_checklist(checks)
     return password if password and all(ok for ok, _ in checks) else None
-
-
-AUTH_PANEL = f"""
-<div class='auth-panel'>
-  <div>
-    <div class='sb-brand' style='padding:0'><div class='sb-logo'>DP</div>
-      <div><b>DAV Project</b><small>Starter · Streamlit + MySQL</small></div></div>
-    <h1>Your data,<br><span>one place.</span></h1>
-    <p class='lead'>One sign-in, your apps, and an AI that can read and explain your database.</p>
-    <div class='feature'><div class='fi'>📝</div><div><b>Notes</b>
-      <small>An example app with a MySQL table you can copy</small></div></div>
-    <div class='feature'><div class='fi'>✨</div><div><b>Nuera Core AI</b>
-      <small>Ask questions in plain English, get answers from your data</small></div></div>
-  </div>
-  <div class='auth-foot'>{ui.CREDITS}</div>
-</div>
-"""
 
 
 GOOGLE_JS = """
@@ -101,7 +73,7 @@ export default function (component) {
       say("Signed in with Google, checking with the server…");
       const token = await result.user.getIdToken();
       setTriggerValue("token", token);
-      signOut(auth).catch(() => {});  // our app keeps the session, Firebase only vouches once
+      signOut(auth).catch(() => {});
     } catch (e) {
       say(e.code === "auth/popup-closed-by-user" ? "Pop-up closed before finishing." :
           (e.code || "error") + ": " + (e.message || ""), true);
@@ -131,12 +103,10 @@ google_button = st.components.v2.component("firebase_google", html=GOOGLE_HTML,
 
 
 def google_ready():
-    """True when [firebase] has the web settings (api_key and auth_domain)."""
     return firebase.web_config() is not None
 
 
 def google_sign_in():
-    """Show the Firebase Google button; a verified Google sign-in becomes a session."""
     result = google_button(data=firebase.web_config(), key="google_btn",
                            on_token_change=lambda: None)
     if result.token:
@@ -151,19 +121,20 @@ def google_sign_in():
 
 
 def qr_image(secret, username):
-    uri = pyotp.TOTP(secret).provisioning_uri(name=username, issuer_name="DAV Project")
-    return segno.make(uri).svg_data_uri(scale=5, border=2)
+    uri = pyotp.TOTP(secret).provisioning_uri(name=username, issuer_name="Stratex")
+    buffer = io.BytesIO()
+    segno.make(uri).save(buffer, kind="png", scale=5, border=2)
+    return buffer.getvalue()
 
 
 def totp_setup(user):
-    """Mandatory authenticator setup: QR code, backup codes, first-code check."""
     state = st.session_state
     if "totp_new" not in state:
         state.totp_new = (pyotp.random_base32(), [secrets.token_hex(4) for _ in range(8)])
     secret, backups = state.totp_new
     st.markdown("**1.** Install **Microsoft Authenticator** (recommended; Google Authenticator and Authy "
                 "also work) and scan this code.")
-    st.markdown(f"<img src='{qr_image(secret, user['username'])}' width='170'>", unsafe_allow_html=True)
+    st.image(qr_image(secret, user["username"]), width=180, alt="QR code for the authenticator app")
     st.caption(f"Can't scan? Choose “enter code manually” and use this key: `{secret}`")
     st.markdown("**2.** Save these one-time backup codes. Each works once if you lose your phone.")
     st.code("  ".join(backups))
@@ -174,7 +145,7 @@ def totp_setup(user):
                 db.save_totp(user["id"], secret, backups)
                 state.pop("totp_new", None)
                 return True
-            st.error("That code is wrong. Check the app and try again.")
+            st.error("Wrong code. Try again.")
     return False
 
 
@@ -184,9 +155,8 @@ def mask(email):
 
 
 def login_body():
-    """Password check first, then the email must be verified (link from Firebase)."""
     state = st.session_state
-    pending = state.get("pending")  # {"user": ..., "password": ...} after the password was right
+    pending = state.get("pending")
     if not pending:
         with st.form("login", border=False):
             who = st.text_input("Username or email", placeholder="you@example.com or username")
@@ -196,7 +166,7 @@ def login_body():
                 if not user:
                     st.error(error)
                 elif not firebase.ready():
-                    st.error("Email verification isn't set up yet (add [firebase] to the secrets).")
+                    st.error("An error occurred. Email verification is not set up.")
                 else:
                     state.pending = {"user": user, "password": password, "resend": True}
                     st.rerun()
@@ -213,12 +183,12 @@ def login_body():
             st.rerun()
 
         if not user["has_totp"]:
-            st.warning("Two-step sign-in is required. Set up your authenticator app to continue.")
+            st.warning("Set up your authenticator app to continue.")
             if totp_setup(user):
                 db.clear_attempts(user["id"])
                 done()
         else:
-            st.info("🔐 Open your authenticator app and enter the 6-digit code for DAV Project.")
+            st.info("🔐 Open your authenticator app and enter the 6-digit code for Stratex.")
             with st.form("totp", border=False):
                 code = st.text_input("Authenticator code", max_chars=8, placeholder="123456",
                                      help="The 6-digit code, or an unused backup code.")
@@ -226,7 +196,7 @@ def login_body():
                     code = code.strip()
                     secret = db.get_totp_secret(user["id"])
                     wait = db.locked_minutes(user["id"])
-                    if wait:  # the lock is stored in the database, so new tabs can't dodge it
+                    if wait:
                         state.pop("pending", None)
                         ui.flash(f"Too many wrong codes. Locked for {wait} min.", "🔒")
                         st.rerun()
@@ -239,7 +209,7 @@ def login_body():
                         st.rerun()
                     st.error("Wrong code. Try again.")
     elif not user["login_email"]:
-        st.warning("Your account needs a verified email. Add yours and we'll send a link.")
+        st.warning("Add your email and we'll send you a link to verify it.")
         email = st.text_input("Email", key="pending_email", placeholder="you@example.com").strip()
         if st.button("Send verification link", type="primary", width="stretch",
                      disabled=not EMAIL_RULE.match(email)):
@@ -271,20 +241,18 @@ def login_body():
 
 
 def sign_in_page():
-    left, gap, right = st.columns([1.1, 0.12, 1])
-    left.markdown(AUTH_PANEL, unsafe_allow_html=True)
-    with right:
-        st.markdown("<div class='auth-head'><h2>Welcome 👋</h2>"
-                    "<p>Sign in with Google, your email or your username.</p></div>",
-                    unsafe_allow_html=True)
-        with ui.card("auth"):
+    _, middle, _ = st.columns([1, 1.6, 1])
+    with middle:
+        st.image("assets/logo.png", width=72, alt="Stratex logo")
+        st.title("Stratex")
+        with st.container(border=True):
             if google_ready():
                 google_sign_in()
             else:
                 st.button("Continue with Google", icon=":material/account_circle:",
                           width="stretch", disabled=True, key="google_btn",
                           help="Add the [firebase] web settings to secrets.toml to turn this on.")
-            st.markdown("<div class='or'><span>or</span></div>", unsafe_allow_html=True)
+            st.caption("or use your username or email")
 
             login_tab, register_tab = st.tabs(["Sign in", "Create account"])
 
@@ -295,10 +263,10 @@ def sign_in_page():
                 username = st.text_input("Username", key="reg_user",
                                          placeholder="3–20 letters, numbers or _").strip()
                 if username and not USERNAME_RULE.match(username):
-                    st.error("Usernames are 3–20 characters: letters, numbers and _ only.")
+                    st.error("Username must be 3-20 letters, numbers or _.")
                 email = st.text_input("Email", key="reg_email", placeholder="you@example.com").strip()
                 if email and not EMAIL_RULE.match(email):
-                    st.error("That doesn't look like an email address.")
+                    st.error("Enter a valid email.")
                 password = new_password_inputs(username, "reg")
                 ready = (bool(password) and bool(USERNAME_RULE.match(username))
                          and bool(EMAIL_RULE.match(email)))
@@ -312,18 +280,18 @@ def sign_in_page():
                         st.success("Account created! " + (
                             "We emailed you a verification link. Click it, then switch to **Sign in**."
                             if sent else "Switch to **Sign in**."))
+        st.caption(ui.CREDITS)
 
 
 def account_page():
     user = st.session_state.user
-    ui.page_header("Account", "Your profile, sign-in methods and password.", "os", "👤")
+    ui.header("Account", "Your profile, sign-in methods and password.")
     left, right = st.columns([1, 1.6])
     with left, ui.card():
         st.subheader("Profile", anchor=False)
         email = user.get("login_email")
-        st.markdown(f"<div class='profile'><div class='avatar'>{user['username'][0].upper()}</div>"
-                    f"<div><b>{user['username']}</b><small>{email or 'No email yet'}<br>Member since "
-                    f"{user['created_at']:%d %B %Y}</small></div></div>", unsafe_allow_html=True)
+        st.markdown(f"**{user['username']}**")
+        st.caption(f"{email or 'No email yet'} · Member since {user['created_at']:%d %B %Y}")
         methods = [m for m, on in (("Password", user["has_password"]),
                                    ("Google", bool(email) and google_ready())) if on]
         ui.stats([("Sign in with", " + ".join(methods) or "—"), ("Lockout", f"{db.MAX_ATTEMPTS} tries")])
@@ -371,4 +339,4 @@ def account_page():
                     ui.flash("Password saved", "🔑")
                     st.rerun()
                 else:
-                    st.error("Your current password is wrong.")
+                    st.error("Wrong current password.")
